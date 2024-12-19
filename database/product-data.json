@@ -1,0 +1,19 @@
+{
+  "packages": [
+    {
+      "type": "prints",
+      "description": "4x6 photo",
+      "price": 5
+    },
+    {
+      "type": "panoramas",
+      "description": "6x12 prints",
+      "price": 7
+    },
+    {
+      "type": "strips",
+      "description": "two 2x6 photo strips",
+      "price": 5
+    }
+  ]
+}
