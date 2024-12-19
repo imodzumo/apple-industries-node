@@ -10,7 +10,7 @@ app.get('/data', (req, res) => {
 	res.json(data);
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
 	console.log(`Backend server is running on http://localhost:${PORT}`);
 });
