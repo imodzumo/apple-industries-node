@@ -1,49 +1,102 @@
 const express = require('express');
 const cors = require('cors');
+const fs = require('fs');
+const path = require('path');
 const app = express();
 
 app.use(cors());
 
 // Challenge 1 data
 const data = require('./database/data.json');
+
 // Challenge 2 data
 const productData = require('./database/product-data.json');
+
+// Challenge 3 - Path to finance.json
+const financeFilePath = path.join(__dirname, 'database', 'finance.json');
+let financeData = {};
+if (fs.existsSync(financeFilePath)) {
+	financeData = JSON.parse(fs.readFileSync(financeFilePath, 'utf8'));
+} else {
+	financeData = {};
+	fs.writeFileSync(financeFilePath, JSON.stringify(financeData, null, 2));
+}
 
 const lastChanceTimestamps = {
 	prints: 0,
 	panoramas: 0,
 	strips: 0
 };
+
 // For Challenge 3: Track monthly revenue
-// Structure: { "YYYY-MM": totalRevenueForThatMonth }
-const monthlyRevenue = {};
-const monthlyFreeRevenue = {};
 function getCurrentMonth() {
 	const now = new Date();
 	const year = now.getFullYear();
 	const month = String(now.getMonth() + 1).padStart(2, '0');
 	return `${year}-${month}`;
 }
+function saveFinanceData() {
+	fs.writeFileSync(financeFilePath, JSON.stringify(financeData, null, 2));
+}
+function updateMonthData() {
+	const currentMonth = getCurrentMonth();
+	if (!financeData[currentMonth]) {
+		financeData[currentMonth] = {
+			revenue: 0,
+			freeRevenue: 0,
+			taxOwed: 0
+		};
+	}
+
+	const revenue = financeData[currentMonth].revenue;
+	const taxRate = 0.08625;
+	financeData[currentMonth].taxOwed = revenue * taxRate;
+}
 function addRevenue(amount) {
 	const currentMonth = getCurrentMonth();
-	if (!monthlyRevenue[currentMonth]) {
-		monthlyRevenue[currentMonth] = 0;
+	if (!financeData[currentMonth]) {
+		financeData[currentMonth] = { revenue: 0, freeRevenue: 0, taxOwed: 0 };
 	}
-	monthlyRevenue[currentMonth] += amount;
+	financeData[currentMonth].revenue += amount;
+	updateMonthData();
+	saveFinanceData();
 }
 function addFreeRevenue(amount) {
 	const currentMonth = getCurrentMonth();
-	if (!monthlyFreeRevenue[currentMonth]) {
-		monthlyFreeRevenue[currentMonth] = 0;
+	if (!financeData[currentMonth]) {
+		financeData[currentMonth] = { revenue: 0, freeRevenue: 0, taxOwed: 0 };
 	}
-	monthlyFreeRevenue[currentMonth] += amount;
+	financeData[currentMonth].freeRevenue += amount;
+	updateMonthData();
+	saveFinanceData();
 }
+// Structure: { "YYYY-MM": totalRevenueForThatMonth }
+const monthlyRevenue = {};
+const monthlyFreeRevenue = {};
+
+// function addRevenue(amount) {
+// 	const currentMonth = getCurrentMonth();
+// 	if (!monthlyRevenue[currentMonth]) {
+// 		monthlyRevenue[currentMonth] = 0;
+// 	}
+// 	monthlyRevenue[currentMonth] += amount;
+// }
+// function addFreeRevenue(amount) {
+// 	const currentMonth = getCurrentMonth();
+// 	if (!monthlyFreeRevenue[currentMonth]) {
+// 		monthlyFreeRevenue[currentMonth] = 0;
+// 	}
+// 	monthlyFreeRevenue[currentMonth] += amount;
+// }
+
+
 
 
 // Endpoint for Challenge 1
 app.get('/data', (req, res) => {
 	res.json(data);
 });
+
 // Endpoint for Challenge 2
 /*
   Logic:
@@ -108,7 +161,7 @@ app.get('/lucky', (req, res) => {
 	});
 });
 
-// Challenge 3: Normal Order endpoint
+// Endpoint for Challenge 3
 // This simulates a customer just paying for a package without the "lucky" logic
 app.get('/order', (req, res) => {
 	const packageType = req.query.package;
@@ -129,21 +182,32 @@ app.get('/order', (req, res) => {
 	});
 });
 
-// Challenge 3: Tax endpoint
-// Current month tax = (monthly revenue for current month) * 8.625%
 app.get('/tax', (req, res) => {
 	const currentMonth = getCurrentMonth();
-	const revenue = monthlyRevenue[currentMonth] || 0;
-	const freeRev = monthlyFreeRevenue[currentMonth] || 0;
-	const taxRate = 0.08625;
-	const taxOwed = revenue * taxRate;
-
+	const monthData = financeData[currentMonth] || { revenue: 0, freeRevenue: 0, taxOwed: 0 };
 	res.json({
 		currentMonth,
-		revenue,
-		freeRevenue: freeRev,
-		taxOwed
+		revenue: monthData.revenue,
+		freeRevenue: monthData.freeRevenue,
+		taxOwed: monthData.taxOwed
 	});
+	// const revenue = monthlyRevenue[currentMonth] || 0;
+	// const freeRev = monthlyFreeRevenue[currentMonth] || 0;
+	// const taxRate = 0.08625;
+	// const taxOwed = revenue * taxRate;
+	//
+	// res.json({
+	// 	currentMonth,
+	// 	revenue,
+	// 	freeRevenue: freeRev,
+	// 	taxOwed
+	// });
+});
+
+app.get('/clear-finance', (req, res) => {
+	financeData = {};
+	saveFinanceData();
+	res.json({ message: 'Finance data cleared.' });
 });
 
 const PORT = process.env.PORT || 4000;
