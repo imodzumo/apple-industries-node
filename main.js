@@ -14,6 +14,32 @@ const lastChanceTimestamps = {
 	panoramas: 0,
 	strips: 0
 };
+// For Challenge 3: Track monthly revenue
+// Structure: { "YYYY-MM": totalRevenueForThatMonth }
+const monthlyRevenue = {};
+const monthlyFreeRevenue = {};
+function getCurrentMonth() {
+	const now = new Date();
+	const year = now.getFullYear();
+	const month = String(now.getMonth() + 1).padStart(2, '0');
+	return `${year}-${month}`;
+}
+function addRevenue(amount) {
+	const currentMonth = getCurrentMonth();
+	if (!monthlyRevenue[currentMonth]) {
+		monthlyRevenue[currentMonth] = 0;
+	}
+	monthlyRevenue[currentMonth] += amount;
+}
+function addFreeRevenue(amount) {
+	const currentMonth = getCurrentMonth();
+	if (!monthlyFreeRevenue[currentMonth]) {
+		monthlyFreeRevenue[currentMonth] = 0;
+	}
+	monthlyFreeRevenue[currentMonth] += amount;
+}
+
+
 // Endpoint for Challenge 1
 app.get('/data', (req, res) => {
 	res.json(data);
@@ -56,9 +82,12 @@ app.get('/lucky', (req, res) => {
 		isEligible = true;
 		// Determine if they win (for demo, 33% chance)
 		won = Math.random() < 0.33;
+		addRevenue(selectedPackage.price);
 
 		if (won) {
 			freePackages = productData.packages.filter(p => p.type !== packageType);
+			const freeValue = freePackages.reduce((sum, pkg) => sum + pkg.price, 0);
+			addFreeRevenue(freeValue);
 		}
 
 		lastChanceTimestamps[packageType] = now;
@@ -68,6 +97,7 @@ app.get('/lucky', (req, res) => {
 		isEligible = false;
 		won = false;
 		freePackages = [];
+		addRevenue(selectedPackage.price);
 	}
 
 	res.json({
@@ -75,6 +105,44 @@ app.get('/lucky', (req, res) => {
 		isEligible,
 		won,
 		freePackages
+	});
+});
+
+// Challenge 3: Normal Order endpoint
+// This simulates a customer just paying for a package without the "lucky" logic
+app.get('/order', (req, res) => {
+	const packageType = req.query.package;
+	if (!packageType) {
+		return res.status(400).json({ error: 'Please specify a package type. e.g. /order?package=prints' });
+	}
+
+	const selectedPackage = productData.packages.find(p => p.type === packageType);
+	if (!selectedPackage) {
+		return res.status(404).json({ error: 'Package not found' });
+	}
+
+	addRevenue(selectedPackage.price);
+
+	res.json({
+		message: 'Order placed successfully.',
+		orderedPackage: selectedPackage
+	});
+});
+
+// Challenge 3: Tax endpoint
+// Current month tax = (monthly revenue for current month) * 8.625%
+app.get('/tax', (req, res) => {
+	const currentMonth = getCurrentMonth();
+	const revenue = monthlyRevenue[currentMonth] || 0;
+	const freeRev = monthlyFreeRevenue[currentMonth] || 0;
+	const taxRate = 0.08625;
+	const taxOwed = revenue * taxRate;
+
+	res.json({
+		currentMonth,
+		revenue,
+		freeRevenue: freeRev,
+		taxOwed
 	});
 });
 
